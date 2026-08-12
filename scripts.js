@@ -497,6 +497,13 @@
             }
         }
 
+        function getStatusClass(status) {
+            if (status === 'completed' || status === 'accepted') return 'success';
+            if (status === 'pending') return 'warning';
+            if (status === 'rejected' || status === 'hazard') return 'danger';
+            return 'info';
+        }
+
         function renderAdminDashboard() {
             
             const drivers = JSON.parse(localStorage.getItem('drivers') || '[]');
@@ -702,19 +709,44 @@
                     <td>${t.destination}</td>
                     <td>${t.passengers}</td>
                     <td>₱${(t.totalBudget || 0).toLocaleString()}</td>
-                    <td><span class="badge badge-warning">${t.status}</span></td>
+                    <td><span class="badge badge-${getStatusClass(t.status)}">${t.status}</span></td>
                     <td>
-                        <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px; margin-right:6px;" onclick="completeTransit(${t.id})">
-                            ✓ Done
-                        </button>
-                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="openRejectModal(${t.id})">
-                            ✕ Reject
-                        </button>
+                        ${t.status === 'pending' ? `
+                            <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px; margin-right:6px;" onclick="acceptTransit(${t.id})">
+                                ✓ Accept
+                            </button>
+                        ` : t.status === 'accepted' ? `
+                            <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px; margin-right:6px;" onclick="completeTransit(${t.id})">
+                                ✓ Complete
+                            </button>
+                        ` : ''}
+                        ${t.status !== 'rejected' && t.status !== 'hazard' ? `
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="openRejectModal(${t.id})">
+                                ✕ Reject
+                            </button>
+                        ` : ''}
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">No transits assigned yet</td></tr>';
             
             document.getElementById('driverTransitsTable').innerHTML = html;
+        }
+
+        function acceptTransit(transitId) {
+            let transits = JSON.parse(localStorage.getItem('transits') || '[]');
+            const transit = transits.find(t => t.id === transitId);
+            if (!transit) {
+                alert('Transit not found');
+                return;
+            }
+
+            transit.status = 'accepted';
+            localStorage.setItem('transits', JSON.stringify(transits));
+            broadcastUpdate('transits');
+            if (document.getElementById('driverDashboard').classList.contains('active')) {
+                renderDriverDashboard();
+            }
+            showToast(`Transit accepted: ${transit.destination}`);
         }
 
         function completeTransit(transitId) {
@@ -1279,25 +1311,25 @@
             transit.rejections = transit.rejections || [];
             transit.rejections.push({ driverId: currentUser.id, driverName: currentUser.name, reasons, ts: new Date().toISOString() });
 
-            // remove assigned driver
-            const oldDriverName = transit.driverName;
-            const oldDriverId = transit.driverId;
+            // remove assigned driver before reassignment
             transit.driverId = null;
             transit.driverName = '';
-
-            // persist
+            
+            // persist rejection history
             transits[idx] = transit;
             localStorage.setItem('transits', JSON.stringify(transits));
             broadcastUpdate('transits');
-            logAlert('transit_rejected', `Transit ${transit.destination} rejected by ${currentUser.name}: ${reasons.join('; ')}`, { transitId, reasons, driverId: oldDriverId });
+            logAlert('transit_rejected', `Transit ${transit.destination} rejected by ${currentUser.name}: ${reasons.join('; ')}`, { transitId, reasons, driverId: currentUser.id });
 
-            // Attempt reassignment
-            reassignTransit(transit, oldDriverId);
+            // Attempt reassignment, excluding all drivers who already rejected this transit
+            reassignTransit(transit);
         }
 
-        function reassignTransit(transit, excludedDriverId) {
+        function reassignTransit(transit) {
             const drivers = JSON.parse(localStorage.getItem('drivers') || '[]');
-            const candidates = drivers.filter(d => d.available && d.id !== excludedDriverId && d.locations && d.locations.some(loc => loc.toLowerCase().includes((transit.destination || '').toLowerCase())));
+            const rejectedIds = (transit.rejections || []).map(r => r.driverId);
+            const candidates = drivers.filter(d => d.available && !rejectedIds.includes(d.id) && d.locations && d.locations.some(loc => loc.toLowerCase().includes((transit.destination || '').toLowerCase())));
+            
             if (candidates.length > 0) {
                 const next = candidates[0];
                 let transits = JSON.parse(localStorage.getItem('transits') || '[]');
@@ -1312,15 +1344,16 @@
                     return;
                 }
             }
-            // No candidate found => hazard notify admin
+
+            // No candidate found => final rejected transit for admin review
             let transitsAll = JSON.parse(localStorage.getItem('transits') || '[]');
             const tIndex = transitsAll.findIndex(t => t.id === transit.id);
             if (tIndex !== -1) {
-                transitsAll[tIndex].status = 'hazard';
+                transitsAll[tIndex].status = 'rejected';
                 localStorage.setItem('transits', JSON.stringify(transitsAll));
             }
             broadcastUpdate('transits');
-            logAlert('transit_hazard', `Transit ${transit.destination} could not be reassigned and requires admin attention`, { transitId: transit.id });
+            logAlert('transit_finally_rejected', `Transit ${transit.destination} was rejected by all available drivers and requires admin review`, { transitId: transit.id });
         }
 
         // Driver availability toggle

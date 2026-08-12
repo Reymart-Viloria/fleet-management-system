@@ -862,27 +862,25 @@ tr:hover {
     .login-showcase h1, .login-showcase > p { margin-left:auto; margin-right:auto; }
     .showcase-points { margin-left:auto; margin-right:auto; text-align:left; }
     .showcase-status { justify-content:center; }
-    .app-container { grid-template-columns:1fr;
-}
-
-.sidebar {
-    display:none;
-}
-
-.stats-grid,.charts-grid,.cards-grid {
-    grid-template-columns:1fr;
-}
-
-.choice-cards {
-    grid-template-columns:1fr;
-}
-
-.main-content {
-    padding:16px;
-}
-
-.login-box {
-    width:calc(100% - 32px);
-    padding:24px;
-}
+    .app-container { grid-template-columns:1fr; }
+    .sidebar {
+        display:block;
+        width:100%;
+        position:sticky;
+        top:0;
+        z-index:10;
+    }
+    .stats-grid,.charts-grid,.cards-grid {
+        grid-template-columns:1fr;
+    }
+    .choice-cards {
+        grid-template-columns:1fr;
+    }
+    .main-content {
+        padding:16px;
+    }
+    .login-box {
+        width:calc(100% - 32px);
+        padding:24px;
+    }
 }
