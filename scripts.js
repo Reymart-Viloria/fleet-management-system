@@ -122,6 +122,7 @@
             // ensure any leftover mobile menu markup is removed
             removeLeftoverMenuButtons();
             initFirebaseIfConfigured();
+            setupLedgerSync();
             restoreSession();
         });
 
@@ -168,11 +169,18 @@
         }
 
         // Initialize Firebase if config object exists on the page
+        let ledgerSyncInterval = null;
+        let ledgerLastRemoteTs = 0;
+
         function initFirebaseIfConfigured() {
             try {
                 const cfg = window.FIREBASE_CONFIG;
-                if (!cfg || typeof cfg !== 'object') return;
+                if (!cfg || typeof cfg !== 'object') {
+                    updateSyncStatus('Firebase config missing', 'warning');
+                    return;
+                }
                 if (typeof firebase === 'undefined' || !firebase || !firebase.initializeApp) {
+                    updateSyncStatus('Firebase SDK not loaded', 'danger');
                     console.warn('Firebase SDK not available');
                     return;
                 }
@@ -180,10 +188,53 @@
                 firestoreDb = firebase.firestore();
                 firebaseActive = true;
                 setupFirebaseSync();
+                updateSyncStatus('Firebase sync active', 'success');
                 console.log('Firebase sync initialized');
             } catch (e) {
                 console.error('initFirebaseIfConfigured error', e);
+                updateSyncStatus('Firebase init failed', 'danger');
             }
+        }
+
+        function setupLedgerSync() {
+            const endpoint = window.FN_ENDPOINT;
+            if (!endpoint) return;
+            if (ledgerSyncInterval) clearInterval(ledgerSyncInterval);
+            pollLedgerUpdates();
+            ledgerSyncInterval = setInterval(pollLedgerUpdates, 5000);
+            updateSyncStatus('Ledger sync active', 'success');
+        }
+
+        async function pollLedgerUpdates() {
+            const endpoint = window.FN_ENDPOINT;
+            if (!endpoint) return;
+            try {
+                const resp = await fetch(endpoint, { method: 'GET' });
+                if (!resp.ok) {
+                    throw new Error(`Ledger sync GET failed: ${resp.status}`);
+                }
+                const data = await resp.json();
+                if (!data || typeof data.ts !== 'number') return;
+                if (data.ts <= ledgerLastRemoteTs) return;
+                ledgerLastRemoteTs = data.ts;
+                const remoteTransits = JSON.parse(data.payload || '[]');
+                const lastSync = parseInt(localStorage.getItem('transitsLastSync') || '0', 10);
+                if (data.ts > lastSync) {
+                    localStorage.setItem('transits', JSON.stringify(remoteTransits));
+                    localStorage.setItem('transitsLastSync', String(data.ts));
+                    handleRemoteUpdate('transits');
+                    console.log('Ledger sync applied remote transits', data.ts);
+                }
+            } catch (e) {
+                console.warn('Ledger sync polling failed', e);
+            }
+        }
+
+        function updateSyncStatus(message, severity = 'info') {
+            const status = document.getElementById('syncStatus');
+            if (!status) return;
+            status.textContent = message;
+            status.style.color = severity === 'success' ? '#28a745' : severity === 'danger' ? '#d63333' : '#6c757d';
         }
 
         function setupFirebaseSync() {
@@ -313,6 +364,36 @@
             showToast('Alerts exported successfully', 'success');
         }
 
+        function exportHistoryCsv() {
+            const history = JSON.parse(localStorage.getItem('history') || '[]').filter(item => !isLegacyPlaceholderTransit(item));
+            if (!history.length) {
+                showToast('No history to export', 'info');
+                return;
+            }
+            const headers = ['Date', 'Driver', 'Vehicle', 'Destination', 'Status', 'Budget'];
+            const rows = history.map((item) => [
+                item.departureDate || '',
+                item.driverName || '',
+                item.vehiclePlate || '',
+                item.destination || '',
+                item.status || '',
+                `₱${(item.totalBudget || 0).toLocaleString()}`
+            ]);
+            const csv = [headers, ...rows]
+                .map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `vanguard-history-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('History exported successfully', 'success');
+        }
+
         function broadcastUpdate(key) {
             try {
                 if (syncChannel) syncChannel.postMessage({ key });
@@ -330,8 +411,19 @@
             if (window.FN_ENDPOINT && key === 'transits') {
                 try {
                     const transits = JSON.parse(localStorage.getItem('transits') || '[]');
-                    // fire-and-forget; function will update canonical doc which clients listen to
-                    sendTransitsToLedger(transits).catch && sendTransitsToLedger(transits);
+                    sendTransitsToLedger(transits).then((result) => {
+                        if (!result) {
+                            throw new Error('Ledger endpoint returned nothing');
+                        }
+                    }).catch((err) => {
+                        console.error('Ledger endpoint failed, falling back to Firestore', err);
+                        if (firebaseActive && firestoreDb) {
+                            const docRef = firestoreDb.collection('vanguard').doc('transits');
+                            const ts = Date.now();
+                            window.lastFirebaseWrite = ts;
+                            docRef.set({ payload: JSON.stringify(transits), ts }, { merge: true }).catch(console.error);
+                        }
+                    });
                 } catch (e) {
                     console.error('Failed to send transits to ledger endpoint', e);
                 }

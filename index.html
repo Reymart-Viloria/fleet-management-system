@@ -78,8 +78,9 @@
         <div class="main-content">
             <!-- Admin Dashboard -->
             <div id="adminDashboard" class="page">
-                <div class="page-header">
+                <div class="page-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                     <h1 class="page-title toggle-nav" onclick="toggleSidebar()">Dashboard</h1>
+                    <div id="syncStatus" style="font-size:14px; color:var(--text-secondary);">Sync status unknown</div>
                 </div>
                 
                 <div class="stats-grid">
@@ -123,6 +124,11 @@
                             <span>All systems are operating normally.</span>
                         </div>
                     </div>
+                </div>
+
+                <div class="table-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h2 style="font-size:18px; font-weight:600; margin:0;">Recent History</h2>
+                    <button class="btn btn-secondary" style="font-size:12px; padding:6px 8px;" onclick="exportHistoryCsv()">Export CSV</button>
                 </div>
 
                 <div class="table-container">

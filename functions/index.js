@@ -9,11 +9,22 @@ const db = admin.firestore();
 exports.appendTransit = functions.https.onRequest(async (req, res) => {
     // Allow CORS from any origin for now (restrict in production)
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(204).send('');
 
     try {
+        const transitsDoc = db.collection('vanguard').doc('transits');
+
+        if (req.method === 'GET') {
+            const snap = await transitsDoc.get();
+            if (!snap.exists) {
+                return res.status(200).send({ ok: true, ts: 0, payload: '[]' });
+            }
+            const data = snap.data();
+            return res.status(200).send({ ok: true, ts: data.ts || 0, payload: data.payload || '[]' });
+        }
+
         if (req.method !== 'POST') return res.status(405).send({ error: 'POST required' });
         const body = req.body || {};
         const transits = body.transits || [];
@@ -46,7 +57,6 @@ exports.appendTransit = functions.https.onRequest(async (req, res) => {
         await ledgerCol.doc(String(ts)).set(entry);
 
         // Update canonical transits document
-        const transitsDoc = db.collection('vanguard').doc('transits');
         await transitsDoc.set({ payload, ts }, { merge: true });
 
         return res.status(200).send({ ok: true, ts, hash });
