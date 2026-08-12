@@ -121,11 +121,15 @@
             setupSidebarGestures();
             // ensure any leftover mobile menu markup is removed
             removeLeftoverMenuButtons();
+            initFirebaseIfConfigured();
             restoreSession();
         });
 
         // Cross-tab / cross-window sync channel
         let syncChannel = null;
+        let firebaseActive = false;
+        let firestoreDb = null;
+        window.lastFirebaseWrite = 0;
 
         function setupSync() {
             try {
@@ -161,6 +165,65 @@
                     refreshCurrentView();
                 }
             });
+        }
+
+        // Initialize Firebase if config object exists on the page
+        function initFirebaseIfConfigured() {
+            try {
+                const cfg = window.FIREBASE_CONFIG;
+                if (!cfg || typeof cfg !== 'object') return;
+                if (typeof firebase === 'undefined' || !firebase || !firebase.initializeApp) {
+                    console.warn('Firebase SDK not available');
+                    return;
+                }
+                try { firebase.initializeApp(cfg); } catch (e) { /* already initialized */ }
+                firestoreDb = firebase.firestore();
+                firebaseActive = true;
+                setupFirebaseSync();
+                console.log('Firebase sync initialized');
+            } catch (e) {
+                console.error('initFirebaseIfConfigured error', e);
+            }
+        }
+
+        function setupFirebaseSync() {
+            if (!firebaseActive || !firestoreDb) return;
+            const docRef = firestoreDb.collection('vanguard').doc('transits');
+            docRef.onSnapshot((snap) => {
+                if (!snap || !snap.exists) return;
+                const data = snap.data();
+                if (!data) return;
+                const ts = data.ts || 0;
+                if (ts <= (window.lastFirebaseWrite || 0)) return; // ignore own writes
+                try {
+                    const remote = JSON.parse(data.payload || '[]');
+                    localStorage.setItem('transits', JSON.stringify(remote));
+                    handleRemoteUpdate('transits');
+                    console.log('Updated transits from Firebase');
+                } catch (e) {
+                    console.error('Invalid Firebase payload', e);
+                }
+            }, (err) => console.error('Firebase snapshot error', err));
+        }
+
+        // Send transits to serverless ledger function (if configured)
+        async function sendTransitsToLedger(transits) {
+            const endpoint = window.FN_ENDPOINT;
+            if (!endpoint) return null;
+            try {
+                const body = { transits, clientId: window.CLIENT_ID || 'web-client' };
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await resp.json();
+                if (data && data.ts) window.lastFirebaseWrite = data.ts;
+                return data;
+            } catch (e) {
+                console.error('sendTransitsToLedger error', e);
+                return null;
+            }
         }
 
         function refreshCurrentView() {
@@ -262,6 +325,28 @@
             } catch (e) {
                 // ignore
             }
+
+            // If a serverless ledger endpoint is configured, post transits there (preferred for tamper-evident ledger)
+            if (window.FN_ENDPOINT && key === 'transits') {
+                try {
+                    const transits = JSON.parse(localStorage.getItem('transits') || '[]');
+                    // fire-and-forget; function will update canonical doc which clients listen to
+                    sendTransitsToLedger(transits).catch && sendTransitsToLedger(transits);
+                } catch (e) {
+                    console.error('Failed to send transits to ledger endpoint', e);
+                }
+            } else if (firebaseActive && firestoreDb && key === 'transits') {
+                try {
+                    const transits = JSON.parse(localStorage.getItem('transits') || '[]');
+                    const docRef = firestoreDb.collection('vanguard').doc('transits');
+                    const ts = Date.now();
+                    window.lastFirebaseWrite = ts;
+                    docRef.set({ payload: JSON.stringify(transits), ts }, { merge: true }).catch(err => console.error('Firebase set error', err));
+                } catch (e) {
+                    console.error('Failed to write transits to Firebase', e);
+                }
+            }
+
             handleRemoteUpdate(key, false);
         }
 

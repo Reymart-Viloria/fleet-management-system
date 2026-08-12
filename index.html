@@ -5,6 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vanguard Fleet Management System</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Optional Firebase config: paste your Firebase Web config here to enable cross-device sync -->
+    <!--
+    <script>
+        // Example:
+        // window.FIREBASE_CONFIG = {
+        //   apiKey: "...",
+        //   authDomain: "your-app.firebaseapp.com",
+        //   projectId: "your-app",
+        //   storageBucket: "your-app.appspot.com",
+        //   messagingSenderId: "...",
+        //   appId: "..."
+        // };
+    </script>
+    -->
+    <!-- Firebase SDKs (Firestore) - uncomment if you plan to use Firebase; can remain loaded harmlessly when unused -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <!-- Optional Cloud Function endpoint: set this to your deployed ledger function URL to enable tamper-evident writes -->
+    <!--
+    <script>
+        // Example:
+        // window.FN_ENDPOINT = 'https://us-central1-yourproject.cloudfunctions.net/appendTransit';
+    </script>
+    -->
 </head>
 <body>
     <!-- Login -->
