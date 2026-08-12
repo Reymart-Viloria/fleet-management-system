@@ -921,16 +921,9 @@ tr:hover {
         cursor:pointer;
         font-size:18px;
     }
+    /* Mobile menu button removed: keep hidden to enforce swipe-only navigation */
     .mobile-nav-toggle {
-        display:inline-flex;
-        margin-bottom:16px;
-        padding:10px 14px;
-        border:none;
-        border-radius:8px;
-        background: var(--primary);
-        color: white;
-        font-size: 14px;
-        cursor: pointer;
+        display:none !important;
     }
     .stats-grid,.charts-grid,.cards-grid {
         grid-template-columns:1fr;
