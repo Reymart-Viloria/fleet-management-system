@@ -118,6 +118,7 @@
             setupAutocomplete();
             setupBudgetCalculator();
             setupSync();
+            setupSidebarGestures();
             restoreSession();
         });
 
@@ -536,6 +537,117 @@
             const sidebar = document.getElementById('sidebar');
             if (!sidebar) return;
             sidebar.classList.toggle('hidden');
+            // when overlay mode is active, add body helper class to shift content
+            const isHidden = sidebar.classList.contains('hidden');
+            if (document.body) {
+                if (!isHidden) document.body.classList.add('sidebar-open');
+                else document.body.classList.remove('sidebar-open');
+            }
+        }
+
+        // Sidebar gesture / swipe handling
+        function setupSidebarGestures() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+
+            let startX = null;
+            let startY = null;
+            const edgeThreshold = 40; // px from left edge to start a swipe
+            const openThreshold = 80; // px movement to consider swipe
+
+            function isOverlayMode() {
+                // treat overlay mode for widths >= 768px (laptop/desktop)
+                return window.innerWidth >= 768;
+            }
+
+            function openSidebar() {
+                sidebar.classList.remove('hidden');
+                document.body.classList.add('sidebar-open');
+            }
+
+            function closeSidebar() {
+                sidebar.classList.add('hidden');
+                document.body.classList.remove('sidebar-open');
+            }
+
+            // touch events
+            document.addEventListener('touchstart', (e) => {
+                if (!e.touches || !e.touches[0]) return;
+                const t = e.touches[0];
+                startX = t.clientX;
+                startY = t.clientY;
+            }, { passive: true });
+
+            document.addEventListener('touchend', (e) => {
+                if (startX === null) return;
+                const t = e.changedTouches && e.changedTouches[0];
+                if (!t) { startX = null; startY = null; return; }
+                const dx = t.clientX - startX;
+                const dy = Math.abs(t.clientY - startY);
+                // ignore mostly-vertical gestures
+                if (dy > 70) { startX = null; startY = null; return; }
+
+                // open if swipe right from near left edge
+                if (startX <= edgeThreshold && dx > openThreshold) {
+                    openSidebar();
+                } else if (!sidebar.classList.contains('hidden') && dx < -openThreshold) {
+                    // close if swipe left
+                    closeSidebar();
+                }
+                startX = null;
+                startY = null;
+            }, { passive: true });
+
+            // pointer (mouse) events for desktop swipe-like gesture
+            let pointerDown = false;
+            document.addEventListener('pointerdown', (e) => {
+                if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
+                if (e.clientX > edgeThreshold && sidebar.classList.contains('hidden')) return;
+                pointerDown = true;
+                startX = e.clientX;
+                startY = e.clientY;
+            });
+
+            document.addEventListener('pointerup', (e) => {
+                if (!pointerDown) return;
+                pointerDown = false;
+                if (startX === null) return;
+                const dx = e.clientX - startX;
+                const dy = Math.abs(e.clientY - startY);
+                if (dy > 70) { startX = null; startY = null; return; }
+
+                if (startX <= edgeThreshold && dx > openThreshold) {
+                    openSidebar();
+                } else if (!sidebar.classList.contains('hidden') && dx < -openThreshold) {
+                    closeSidebar();
+                }
+
+                startX = null; startY = null;
+            });
+
+            // close when tapping main content (mobile overlay mode)
+            document.addEventListener('click', (e) => {
+                const el = e.target;
+                if (!sidebar || sidebar.contains(el)) return;
+                if (!sidebar.classList.contains('hidden') && window.innerWidth <= 1024) {
+                    closeSidebar();
+                }
+            });
+
+            // keep overlay mode in sync with window size
+            function updateOverlayMode() {
+                if (isOverlayMode()) {
+                    sidebar.classList.add('overlay');
+                } else {
+                    sidebar.classList.remove('overlay');
+                    // ensure body class removed
+                    document.body.classList.remove('sidebar-open');
+                    sidebar.classList.remove('hidden');
+                }
+            }
+
+            window.addEventListener('resize', updateOverlayMode);
+            updateOverlayMode();
         }
 
         function getStatusClass(status) {

@@ -881,6 +881,33 @@ tr:hover {
         gap:12px;
         margin-bottom:16px;
     }
+
+    /* Overlay/slide sidebar styles for larger screens */
+    @media (min-width:769px) {
+        .sidebar.overlay {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 260px;
+            max-width: 80vw;
+            background: var(--white);
+            box-shadow: 0 14px 40px rgba(2,6,23,0.12);
+            transform: translateX(0);
+            transition: transform .28s ease;
+            z-index: 1200;
+        }
+
+        .sidebar.overlay.hidden {
+            transform: translateX(-110%);
+        }
+
+        /* when overlay open, push main content */
+        body.sidebar-open .main-content {
+            margin-left: 260px;
+            transition: margin-left .28s ease;
+        }
+    }
     .sidebar-toggle {
         display:inline-flex;
         align-items:center;
