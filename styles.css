@@ -962,3 +962,16 @@ tr:hover {
         padding:24px;
     }
 }
+
+/* Left-edge invisible click area to open sidebar on desktop */
+.edge-toggle {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    z-index: 1300;
+    background: transparent;
+    cursor: pointer;
+}
+.edge-toggle:hover { background: rgba(37,99,235,0.04); }

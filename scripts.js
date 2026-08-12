@@ -547,6 +547,14 @@
             }
         }
 
+        // Global open helper for left-edge toggle
+        function openSidebarGlobal() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            sidebar.classList.remove('hidden');
+            document.body.classList.add('sidebar-open');
+        }
+
         // Sidebar gesture / swipe handling
         function setupSidebarGestures() {
             const sidebar = document.getElementById('sidebar');
@@ -650,6 +658,15 @@
 
             window.addEventListener('resize', updateOverlayMode);
             updateOverlayMode();
+
+            // wire the left-edge toggle element
+            const edge = document.getElementById('edgeToggle');
+            if (edge) {
+                edge.addEventListener('click', (e) => {
+                    openSidebarGlobal();
+                    e.stopPropagation();
+                });
+            }
         }
 
         // Remove any leftover visible menu buttons (defensive cleanup)
