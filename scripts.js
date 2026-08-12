@@ -648,6 +648,9 @@
             function updateOverlayMode() {
                 if (isOverlayMode()) {
                     sidebar.classList.add('overlay');
+                    // hide by default in overlay mode so main content stays accessible
+                    sidebar.classList.add('hidden');
+                    document.body.classList.remove('sidebar-open');
                 } else {
                     sidebar.classList.remove('overlay');
                     // ensure body class removed
