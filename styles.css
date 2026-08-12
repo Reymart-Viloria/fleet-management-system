@@ -869,6 +869,41 @@ tr:hover {
         position:sticky;
         top:0;
         z-index:10;
+        padding: 16px;
+    }
+    .sidebar.hidden {
+        display:none !important;
+    }
+    .sidebar-header {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        margin-bottom:16px;
+    }
+    .sidebar-toggle {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:40px;
+        height:40px;
+        border-radius:10px;
+        border:1px solid rgba(255,255,255,.5);
+        background: rgba(255,255,255,.12);
+        color: white;
+        cursor:pointer;
+        font-size:18px;
+    }
+    .mobile-nav-toggle {
+        display:inline-flex;
+        margin-bottom:16px;
+        padding:10px 14px;
+        border:none;
+        border-radius:8px;
+        background: var(--primary);
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
     }
     .stats-grid,.charts-grid,.cards-grid {
         grid-template-columns:1fr;

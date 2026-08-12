@@ -137,8 +137,40 @@
             }
 
             window.addEventListener('storage', (e) => {
-                if (e.key) handleRemoteUpdate(e.key);
+                if (!e.key) return;
+                if (e.key === 'vanguard-sync') {
+                    try {
+                        const payload = JSON.parse(e.newValue || '{}');
+                        if (payload.key) handleRemoteUpdate(payload.key);
+                    } catch (err) {
+                        // ignore malformed sync payload
+                    }
+                    return;
+                }
+                handleRemoteUpdate(e.key);
             });
+
+            window.addEventListener('focus', () => {
+                refreshCurrentView();
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    refreshCurrentView();
+                }
+            });
+        }
+
+        function refreshCurrentView() {
+            if (document.getElementById('adminDashboard')?.classList.contains('active')) {
+                renderAdminDashboard();
+            }
+            if (document.getElementById('dataSection')?.classList.contains('active')) {
+                renderDataSection();
+            }
+            if (document.getElementById('driverDashboard')?.classList.contains('active')) {
+                renderDriverDashboard();
+            }
+            renderAdminAlerts();
         }
 
         function showToast(message, type = 'info') {
@@ -221,11 +253,9 @@
             } catch (e) {
                 // ignore
             }
-            // storage event is only fired in other windows; to ensure other tabs see the change,
-            // we write then restore the same value to trigger the storage event in some cases.
             try {
-                const val = localStorage.getItem(key);
-                localStorage.setItem(key, val);
+                const payload = JSON.stringify({ key, ts: Date.now() });
+                localStorage.setItem('vanguard-sync', payload);
             } catch (e) {
                 // ignore
             }
@@ -495,6 +525,17 @@
             } else if (pageId === 'driverDashboard') {
                 renderDriverDashboard();
             }
+
+            if (window.innerWidth <= 768) {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) sidebar.classList.add('hidden');
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            sidebar.classList.toggle('hidden');
         }
 
         function getStatusClass(status) {
