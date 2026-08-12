@@ -119,6 +119,8 @@
             setupBudgetCalculator();
             setupSync();
             setupSidebarGestures();
+            // ensure any leftover mobile menu markup is removed
+            removeLeftoverMenuButtons();
             restoreSession();
         });
 
@@ -648,6 +650,23 @@
 
             window.addEventListener('resize', updateOverlayMode);
             updateOverlayMode();
+        }
+
+        // Remove any leftover visible menu buttons (defensive cleanup)
+        function removeLeftoverMenuButtons() {
+            try {
+                const candidates = Array.from(document.querySelectorAll('button, a, div, span'));
+                candidates.forEach(el => {
+                    if (!el || !el.textContent) return;
+                    const txt = el.textContent.trim();
+                    if (txt === '☰ Menu' || txt === '☰' || txt === '\u2630 Menu' || /\u2630/.test(txt)) {
+                        // hide rather than remove to avoid breaking scripts
+                        el.style.display = 'none';
+                    }
+                });
+            } catch (e) {
+                // ignore
+            }
         }
 
         function getStatusClass(status) {
