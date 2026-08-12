@@ -217,6 +217,29 @@ body {
     color: var(--text);
 }
 
+/* Make page titles act as hidden toggle for navigation on small screens */
+.page-title.toggle-nav {
+    position: relative;
+}
+.page-title.toggle-nav { cursor: pointer; }
+.page-title.toggle-nav::before {
+    content: '';
+    display: none;
+    position: absolute;
+    left: -34px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+}
+@media (max-width: 768px) {
+    .page-title.toggle-nav::before {
+        content: '☰';
+        display: inline-block;
+        color: var(--text-secondary);
+        margin-right: 8px;
+    }
+}
+
 .btn {
     padding: 10px 20px;
     border: none;
